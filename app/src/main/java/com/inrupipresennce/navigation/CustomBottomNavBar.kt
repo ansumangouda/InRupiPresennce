@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -56,6 +57,7 @@ val bottomNavItems = listOf(
 fun CustomBottomNavBar(
     items: List<BottomNavItem>,
     currentRoute: String,
+    modifier: Modifier = Modifier,
     onItemSelected: (BottomNavItem) -> Unit,
     onLogoutConfirmed: () -> Unit // 👈 callback for logout
 ) {
@@ -64,6 +66,7 @@ fun CustomBottomNavBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .navigationBarsPadding()
             .height(70.dp)
             .padding(horizontal = 24.dp, vertical = 12.dp)
             .clip(RoundedCornerShape(50))

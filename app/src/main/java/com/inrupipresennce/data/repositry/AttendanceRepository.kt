@@ -4,7 +4,10 @@ import android.content.Context
 import com.inrupipresennce.data.api.ApiClient
 import com.inrupipresennce.data.api.model.AttendanceResponse
 import com.inrupipresennce.data.api.model.AttendanceTodayResponse
+import com.inrupipresennce.data.api.model.BirthdayResponse
+import com.inrupipresennce.data.api.model.EarlyBirdResponse
 import com.inrupipresennce.data.api.model.LunchResponse
+import com.inrupipresennce.data.api.model.OffTodayResponse
 import com.inrupipresennce.data.valu.Constants
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -97,6 +100,33 @@ class AttendanceRepository {
             LunchResponse(false, e.message ?: "Network error")
         }
     }
+
+    suspend fun getBirthdays(): BirthdayResponse? {
+        return try {
+            val response = api.getBirthdays()
+            if (response.isSuccessful) response.body() else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+    suspend fun getOffToday(): OffTodayResponse? {
+        return try {
+            val response = api.getOffToday()
+            if (response.isSuccessful) response.body() else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun getEarlyBirdReport(): EarlyBirdResponse? {
+        return try {
+            val response = api.getEarlyBirdReport()
+            if (response.isSuccessful) response.body() else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
 
 
 }

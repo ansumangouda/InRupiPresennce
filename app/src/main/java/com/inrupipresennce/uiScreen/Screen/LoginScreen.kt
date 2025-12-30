@@ -21,10 +21,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
-import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -37,7 +34,6 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -50,8 +46,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.inrupipresennce.data.repositry.LoginRepository
-import com.inrupipresennce.ui.theme.graentDark2
-import com.inrupipresennce.ui.theme.graentlight1
 import com.inrupipresennce.uiScreen.ViewModelFactory.LoginViewModelFactory
 import com.inrupipresennce.uiScreen.viewmodel.LoginViewModel
 import com.inrupipresennce.utils.PreferenceHelper
@@ -342,7 +336,7 @@ fun LoginScreen(onLoginSuccess: (adminId: Int) -> Unit) {
 fun ContinueButton(
     onClick: () -> Unit,
     isLoading: Boolean = false,
-    modifier: Modifier = Modifier
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier

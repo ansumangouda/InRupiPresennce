@@ -10,16 +10,12 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.inrupipresennce.uiScreen.Screen.CalendarScreen
-import com.inrupipresennce.uiScreen.Screen.FaceAttendanceScreen
+import com.inrupipresennce.uiScreen.Screen.Facescreen
 import com.inrupipresennce.uiScreen.Screen.LoginScreen
 import com.inrupipresennce.uiScreen.Screen.LogoutButton
 import com.inrupipresennce.uiScreen.Screen.SplashScreen
 import com.inrupipresennce.uiScreen.ViewModelFactory.LoginViewModelFactory
 import com.inrupipresennce.uiScreen.viewmodel.AttendanceViewModel
-import com.inrupipresennce.uiScreen.viewmodel.LoginViewModel
-import com.inrupipresennce.utils.PreferenceHelper
-
-import kotlinx.coroutines.delay
 
 @Composable
 fun AppNavGraph(
@@ -67,9 +63,9 @@ fun AppNavGraph(
         }
 
         composable("face") {
-            FaceAttendanceScreen(
+            Facescreen(
                 viewModel = viewModel,
-                navController = navController
+              //  navController = navController
             )
         }
 

@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
                 // 🔹 Local state for logout confirmation popup
                 var showLogoutDialog by remember { mutableStateOf(false) }
 
-                Scaffold(      modifier =  Modifier.padding(WindowInsets.navigationBars.asPaddingValues()),
+                Scaffold(
 
                     bottomBar = {
                         // ✅ Show bottom bar only for main routes
@@ -62,8 +62,7 @@ class MainActivity : ComponentActivity() {
                                 currentRoute = currentRoute,
                                 onItemSelected = { item ->
                                     when (item.route) {
-                                        "logout" -> showLogoutDialog =
-                                            true  // 👈 show popup instead of navigate
+                                        "logout" -> showLogoutDialog = true  // 👈 show popup instead of navigate
                                         else -> {
                                             navController.navigate(item.route) {
                                                 popUpTo("face") { inclusive = false }

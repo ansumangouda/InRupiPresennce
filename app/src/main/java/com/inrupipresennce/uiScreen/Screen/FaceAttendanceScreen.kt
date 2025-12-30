@@ -1,3 +1,5 @@
+@file:Suppress("COMPOSE_APPLIER_CALL_MISMATCH")
+
 package com.inrupipresennce.uiScreen.Screen
 
 import android.Manifest
@@ -6,7 +8,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.graphics.*
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.drawable.Icon
 import android.location.Location
 import android.location.LocationManager
 import android.provider.Settings
@@ -14,27 +24,65 @@ import android.util.Log
 import android.util.Size
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.*
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme.colorScheme
-import androidx.compose.runtime.*
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,7 +94,11 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavHostController
 import coil.compose.rememberAsyncImagePainter
-import com.google.android.gms.location.*
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
@@ -61,13 +113,17 @@ import com.inrupipresennce.utils.FullScreenImageDialog
 import com.inrupipresennce.utils.GpsDisabledDialog
 import com.inrupipresennce.utils.GpsStatusReceiver
 import com.inrupipresennce.utils.PreferenceHelper
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -99,8 +155,6 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
     var showPunchOutConfirm by remember { mutableStateOf(false) }
 
 
-
-
     //error message dialog
 
     fun showDialog(title: String, message: String, icon: Int = R.drawable.face_scan) {
@@ -115,7 +169,6 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
     val permissionsLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { }
-
     // GPS status
     var isGpsEnabled by remember { mutableStateOf(true) }
     val gpsReceiver = remember { GpsStatusReceiver { enabled -> isGpsEnabled = enabled } }
@@ -144,33 +197,29 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
     LaunchedEffect(Unit) {
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         isGpsEnabled =
-            locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
-                    locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+            locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(
+                LocationManager.NETWORK_PROVIDER
+            )
     }
 
     if (!isGpsEnabled) {
-        GpsDisabledDialog(
-            onOpenSettings = {
-                val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
-                context.startActivity(intent)
-            },
-            onDismiss = {}
-        )
+        GpsDisabledDialog(onOpenSettings = {
+            val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+            context.startActivity(intent)
+        }, onDismiss = {})
     }
 
     // Clock updater
     LaunchedEffect(Unit) {
         permissionsLauncher.launch(
             arrayOf(
-                Manifest.permission.CAMERA,
-                Manifest.permission.ACCESS_FINE_LOCATION
+                Manifest.permission.CAMERA, Manifest.permission.ACCESS_FINE_LOCATION
             )
         )
         coroutineScope.launch {
             while (true) {
                 val date = Date()
-                currentTime.value =
-                    SimpleDateFormat("hh:mm a", Locale.getDefault()).format(date)
+                currentTime.value = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(date)
                 currentDate.value =
                     SimpleDateFormat("EEEE, MMM dd, yyyy", Locale.getDefault()).format(date)
                 delay(1000)
@@ -199,16 +248,13 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
 
             // If backend has multiple messages, join them nicely
             val messageText = when {
-                res.messages != null && res.messages.isNotEmpty() ->
-                    res.messages.joinToString("\n\n") // multiline list
+                res.messages != null && res.messages.isNotEmpty() -> res.messages.joinToString("\n\n") // multiline list
 
                 else -> res.message
             }
 
             showDialog(
-                title = title,
-                message = messageText,
-                icon = iconRes
+                title = title, message = messageText, icon = iconRes
             )
             isLoading = false
             if (res.status_code == 2101 || res.status_code == 2102) {
@@ -224,8 +270,10 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
     // 🔹 React to updates
 
     LaunchedEffect(Unit) {
-        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED
+        if (ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
         ) return@LaunchedEffect
 
         val request = LocationRequest.Builder(
@@ -236,8 +284,7 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
             override fun onLocationResult(result: LocationResult) {
                 val loc = result.lastLocation ?: return
 
-                val distResult = FloatArray(1)
-            /*    Location.distanceBetween(
+                val distResult = FloatArray(1)/*    Location.distanceBetween(
                     loc.latitude, loc.longitude,
                     Constants.OFFICE_LAT, Constants.OFFICE_LON,
                     distResult
@@ -252,14 +299,15 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
                 if (officeLat != null && officeLon != null && officeRadius != null) {
 
                     Location.distanceBetween(
-                        loc.latitude, loc.longitude,
-                        officeLat, officeLon,
-                        distResult
+                        loc.latitude, loc.longitude, officeLat, officeLon, distResult
                     )
 
                     currentDistance = distResult[0]
                     isInsideOffice = distResult[0] <= officeRadius
-                    Log.d("OFFICE_DEBUG", "lat=$officeLat lon=$officeLon radius=$officeRadius distance=${distResult[0]}")
+                    Log.d(
+                        "OFFICE_DEBUG",
+                        "lat=$officeLat lon=$officeLon radius=$officeRadius distance=${distResult[0]}"
+                    )
 
 
                 }
@@ -275,8 +323,8 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
                 icon = if (res.status) R.drawable.punch_in else R.drawable.validation
             )
             if (res.status) {
-            viewModel.loadTodayAttendance()
-        }
+                viewModel.loadTodayAttendance()
+            }
 
             viewModel.clearLunchEvent()
         }
@@ -311,8 +359,7 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
             icon = errorIcon,
             title = errorTitle,
             message = errorMessage,
-            onDismiss = { showErrorDialog = false }
-        )
+            onDismiss = { showErrorDialog = false })
     }
 
 
@@ -320,11 +367,11 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
     fun captureAndVerifyFace(loc: Location) {
 
 
-      /*  val distance = FloatArray(1)
-        Location.distanceBetween(
-            loc.latitude, loc.longitude,
-            Constants.OFFICE_LAT, Constants.OFFICE_LON, distance
-        )*/
+        /*  val distance = FloatArray(1)
+          Location.distanceBetween(
+              loc.latitude, loc.longitude,
+              Constants.OFFICE_LAT, Constants.OFFICE_LON, distance
+          )*/
         val distance = FloatArray(1)
         val officeLat = PreferenceHelper.getOfficeLat(context)
         val officeLon = PreferenceHelper.getOfficeLon(context)
@@ -333,9 +380,7 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
         if (officeLat != null && officeLon != null && officeRadius != null) {
 
             Location.distanceBetween(
-                loc.latitude, loc.longitude,
-                officeLat, officeLon,
-                distance
+                loc.latitude, loc.longitude, officeLat, officeLon, distance
             )
 
             currentDistance = distance[0]
@@ -356,7 +401,8 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
         val output = ImageCapture.OutputFileOptions.Builder(file).build()
 
         imageCapture?.takePicture(
-            output, ContextCompat.getMainExecutor(context),
+            output,
+            ContextCompat.getMainExecutor(context),
             object : ImageCapture.OnImageSavedCallback {
                 @SuppressLint("DefaultLocale")
                 override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
@@ -368,8 +414,7 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
                             .build()
                     )
 
-                    detector.process(image)
-                        .addOnSuccessListener { faces ->
+                    detector.process(image).addOnSuccessListener { faces ->
                             if (faces.isEmpty()) {
                                 showDialog(
                                     title = "❌ No face detected. Try again.",
@@ -443,8 +488,7 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
 
                                     // 8) Get stored image path from prefs and download
                                     val prefs = context.getSharedPreferences(
-                                        "login_prefs",
-                                        Context.MODE_PRIVATE
+                                        "login_prefs", Context.MODE_PRIVATE
                                     )
                                     val imagePath = prefs.getString("image", null)
                                     if (imagePath.isNullOrEmpty()) {
@@ -497,8 +541,7 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
 
                                     // 10) Generate embedding for stored face
                                     val storedDescriptor = FaceEmbeddingExtractor.generateEmbedding(
-                                        context,
-                                        croppedStoredFile
+                                        context, croppedStoredFile
                                     )
 
                                     // 11) Compare embeddings
@@ -571,8 +614,7 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
                                     }
                                 }
                             }
-                        }
-                        .addOnFailureListener { e ->
+                        }.addOnFailureListener { e ->
 
                             status = "Face detection failed: ${e.message}"
                             isProcessing = false
@@ -587,8 +629,7 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
                     isLoading = false
 
                 }
-            }
-        )
+            })
     }
 
 
@@ -600,29 +641,102 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
                 icon = errorIcon,
                 title = errorTitle,
                 message = errorMessage,
-                onDismiss = { showErrorDialog = false }
-            )
+                onDismiss = { showErrorDialog = false })
         }
+        val headerGradient = Brush.verticalGradient(
+        colors = listOf(graentlight1, graentDark2)
+    )
         Box(
-                    modifier = Modifier
-                        .padding(innerPadding)
-                        .fillMaxSize()
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    graentlight1, // light green near camera
-                                    graentDark2   // darker green toward bottom
-                                ),
-                                start = Offset(0f, 0f),
-                                end = Offset(0f, Float.POSITIVE_INFINITY)
-                            )
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxWidth()
+                .height(180.dp) // Height of the green section
+                .background(headerGradient)
+                .drawBehind {
+                    val path = Path().apply {
+                        moveTo(0f, size.height) // Start at bottom-left
+                        // This creates a large arc dipping down in the center
+                        quadraticTo(
+                            x1 = size.width / 2f, // Control point in the middle
+                            y1 = size.height + 250f, // Control point pulled way down
+                            x2 = size.width, // End at bottom-right
+                            y2 = size.height
                         )
+                        lineTo(size.width, 0f)
+                        lineTo(0f, 0f)
+                        close()
+                    }
+                    drawPath(path, brush= headerGradient)
+                }
+        ) {
+     /*   Box(
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            graentlight1, // light green near camera
+                            graentDark2   // darker green toward bottom
+                        ), start = Offset(0f, 0f), end = Offset(0f, Float.POSITIVE_INFINITY)
+                    )
+                )
 
-                ) {
+        ) {*/
 
             // ⭐ TOP-RIGHT PROFILE IMAGE (FULLY FIXED)
 
-            Image(
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 16.dp), // Padding applied to the Card itself
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.3f)),
+                elevation = CardDefaults.cardElevation(0.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp) // Set a proper height for the Row
+                        .padding(horizontal = 16.dp), // Padding inside the row
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // ... (Content of the Row is correct)
+                    Image(
+                        painter = rememberAsyncImagePainter(
+                            model = Constants.BASE_URL + (imagePath ?: "")
+                        ),
+                        contentDescription = "Profile Photo",
+                        contentScale = ContentScale.Crop,
+
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color.White, CircleShape)
+                            .clickable { showFullImage = true }
+
+                    )
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("12:00 pm", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        Text("Wednesday | Dec 10 2025", fontSize = 13.sp, color = Color.Black.copy(alpha = 0.8f))
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(Color.White, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_bell),
+                            contentDescription = "Notifications",
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
+
+            /*Image(
                 painter = rememberAsyncImagePainter(
                     model = Constants.BASE_URL + (imagePath ?: "")
                 ),
@@ -630,312 +744,300 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .padding(
-                        top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 12.dp,
-                        end = 16.dp
+                        top = WindowInsets.statusBars.asPaddingValues()
+                            .calculateTopPadding() + 12.dp, end = 16.dp
                     )
                     .size(60.dp)
                     .clip(CircleShape)
                     .background(Color.White, CircleShape)
                     .align(Alignment.TopEnd)
-                        .clickable { showFullImage = true }
 
-            )
+
+            )*/
 
             Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 20.dp)
-                            //  .verticalScroll(scrollState)  // ✅ enables scroll
-                            .padding(bottom = 80.dp),     // extra space for bottom button,
-                        horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 20.dp)
+                    //  .verticalScroll(scrollState)  // ✅ enables scroll
+                    .padding(bottom = 80.dp),     // extra space for bottom button,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+
+                Text(
+                    currentTime.value,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 32.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(currentDate.value, color = Color.White, fontSize = 14.sp)
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .padding(top = 200.dp)
+                    .offset(y = 140.dp - 90.dp) // Starts just below camera
+                    .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                    .background(colorScheme.background)
+            )
+
+            // Camera preview
+            Card(
+                modifier = Modifier
+                    .size(250.dp)
+                    .align(Alignment.Center)
+                    .offset(y = (-120).dp)
+                    .border(3.dp, colorScheme.primary, CircleShape),
+                shape = CircleShape,
+                elevation = CardDefaults.cardElevation(8.dp)
+            ) {
+                AndroidView(
+                    factory = { ctx ->
+                        PreviewView(ctx).also { previewView ->
+                            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                            cameraProviderFuture.addListener({
+                                val cameraProvider = cameraProviderFuture.get()
+                                val preview = Preview.Builder().build().also {
+                                    it.setSurfaceProvider(previewView.surfaceProvider)
+                                }
+                                val capture =
+                                    ImageCapture.Builder().setTargetResolution(Size(640, 480))
+                                        .build()
+                                val selector = CameraSelector.DEFAULT_FRONT_CAMERA
+                                cameraProvider.unbindAll()
+                                cameraProvider.bindToLifecycle(
+                                    lifecycleOwner, selector, preview, capture
+                                )
+                                imageCapture = capture
+                            }, ContextCompat.getMainExecutor(ctx))
+                        }
+                    }, modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .offset(y = -(30).dp),
+                contentAlignment = Alignment.BottomCenter // 👈 anchors to bottom
+            ) {
+
+                // Bottom info & button
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 0.dp)
+                        .align(Alignment.BottomCenter),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        modifier = Modifier.padding(6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        GradientBorderInfoBox(
+                            label = "Punch In",
+                            value = punchInValue,
+                            gradientColors = listOf(graentDark2, graentlight1),
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 4.dp)
+                        )
+                        GradientBorderInfoBox(
+                            label = "Punch Out",
+                            value = punchOutValue,
+                            gradientColors = listOf(graentDark2, graentlight1),
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 4.dp)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.padding(6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        GradientBorderInfoBox(
+                            label = "Lunch In",
+                            value = lunchInValue,
+                            gradientColors = listOf(graentDark2, graentlight1),
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(end = 4.dp)
+                        )
+                        GradientBorderInfoBox(
+                            label = "Lunch Out",
+                            value = lunchOutValue,
+                            gradientColors = listOf(graentDark2, graentlight1),
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 4.dp)
+                        )
+                    }
+
+                    if (currentDistance != null) {
+                        val distanceText = if (isInsideOffice) {
+                            "🏢 You’re inside the office zone (${currentDistance!!.roundToInt()} m)"
+                        } else {
+                            "📍 You are ${currentDistance!!.roundToInt()} m away from office"
+                        }
 
                         Text(
-                            currentTime.value,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 32.sp
+                            text = distanceText,
+                            color = if (isInsideOffice) Color(0xFF2E7D32) else Color(
+                                0xFFD32F2F
+                            ),
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 15.sp,
+                            modifier = Modifier.padding(vertical = 6.dp)
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(currentDate.value, color = Color.White, fontSize = 14.sp)
                     }
-                    Box(
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .fillMaxHeight()
-                            .padding(top = 200.dp)
-                            .offset(y = 140.dp - 90.dp) // Starts just below camera
-                            .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
-                            .background(colorScheme.background)
-                    )
-
-                    // Camera preview
-                    Card(
-                        modifier = Modifier
-                            .size(250.dp)
-                            .align(Alignment.Center)
-                            .offset(y = (-120).dp)
-                            .border(3.dp, colorScheme.primary, CircleShape),
-                        shape = CircleShape,
-                        elevation = CardDefaults.cardElevation(8.dp)
+                            .height(60.dp)
+                            .offset(y = 30.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        AndroidView(
-                            factory = { ctx ->
-                                PreviewView(ctx).also { previewView ->
-                                    val cameraProviderFuture =
-                                        ProcessCameraProvider.getInstance(ctx)
-                                    cameraProviderFuture.addListener({
-                                        val cameraProvider = cameraProviderFuture.get()
-                                        val preview = Preview.Builder().build().also {
-                                            it.setSurfaceProvider(previewView.surfaceProvider)
-                                        }
-                                        val capture = ImageCapture.Builder()
-                                            .setTargetResolution(Size(640, 480))
-                                            .build()
-                                        val selector = CameraSelector.DEFAULT_FRONT_CAMERA
-                                        cameraProvider.unbindAll()
-                                        cameraProvider.bindToLifecycle(
-                                            lifecycleOwner,
-                                            selector,
-                                            preview,
-                                            capture
-                                        )
-                                        imageCapture = capture
-                                    }, ContextCompat.getMainExecutor(ctx))
+
+                        // 👉 BUTTON 1 — Capture Face
+                        Button(
+                            onClick = {
+                                if (isProcessing) return@Button // 🔥 prevents double click
+
+                                isProcessing = true
+                                isLoading = true
+                                // If Punch-IN exists but Punch-OUT is missing → Ask confirmation
+                                if (punchInValue != "--" && punchOutValue == "--") {
+                                    showPunchOutConfirm = true
+                                    isProcessing = false   // ⭐ Allow dialog to show
+                                    isLoading = false
+                                    return@Button
+                                }
+                                status = "Checking location..."
+
+                                if (ActivityCompat.checkSelfPermission(
+                                        context, Manifest.permission.ACCESS_FINE_LOCATION
+                                    ) != PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    status = "Location permission not granted"
+                                    return@Button
+                                }
+
+                                fused.lastLocation.addOnSuccessListener { loc ->
+                                    if (loc != null) captureAndVerifyFace(loc)
+                                    else showDialog(
+                                        title = "Location Error",
+                                        message = "Unable to get your current location. Please try again.",
+                                        icon = R.drawable.loaction
+                                    )
+                                    isProcessing = false
+                                    isLoading = false
+
                                 }
                             },
+                            enabled = !isLoading,   // disable while loading
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
                             modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape)
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .offset(y = -(30).dp),
-                        contentAlignment = Alignment.BottomCenter // 👈 anchors to bottom
-                    ) {
-
-                        // Bottom info & button
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 0.dp)
-                                .align(Alignment.BottomCenter),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .weight(1f)
+                                .fillMaxHeight()
                         ) {
-                            Row(
-                                modifier = Modifier.padding(6.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                GradientBorderInfoBox(
-                                    label = "Punch In",
-                                    value = punchInValue,
-                                    gradientColors = listOf(graentDark2, graentlight1),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(end = 4.dp)
-                                )
-                                GradientBorderInfoBox(
-                                    label = "Punch Out",
-                                    value = punchOutValue,
-                                    gradientColors = listOf(graentDark2, graentlight1),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(start = 4.dp)
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier.padding(6.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                GradientBorderInfoBox(
-                                    label = "Lunch In",
-                                    value = lunchInValue,
-                                    gradientColors = listOf(graentDark2, graentlight1),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(end = 4.dp)
-                                )
-                                GradientBorderInfoBox(
-                                    label = "Lunch Out",
-                                    value = lunchOutValue,
-                                    gradientColors = listOf(graentDark2, graentlight1),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(start = 4.dp)
-                                )
-                            }
-
-                            if (currentDistance != null) {
-                                val distanceText = if (isInsideOffice) {
-                                    "🏢 You’re inside the office zone (${currentDistance!!.roundToInt()} m)"
-                                } else {
-                                    "📍 You are ${currentDistance!!.roundToInt()} m away from office"
-                                }
-
-                                Text(
-                                    text = distanceText,
-                                    color = if (isInsideOffice) Color(0xFF2E7D32) else Color(
-                                        0xFFD32F2F
-                                    ),
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 15.sp,
-                                    modifier = Modifier.padding(vertical = 6.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Row(
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(60.dp)
-                                    .offset(y = 30.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                    .background(
+                                        brush = Brush.linearGradient(
+                                            colors = listOf(graentDark2, graentlight1),
+                                            start = Offset(0f, Float.POSITIVE_INFINITY),
+                                            end = Offset(Float.POSITIVE_INFINITY, 0f)
+                                        ), shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .fillMaxSize(), contentAlignment = Alignment.Center
                             ) {
+                                if (isLoading) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                } else {
+                                    Text(
+                                        "Capture Face",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 15.sp
+                                    )
 
-                                // 👉 BUTTON 1 — Capture Face
-                                Button(
-                                    onClick = {
-                                        if (isProcessing) return@Button // 🔥 prevents double click
-
-                                        isProcessing = true
-                                        isLoading = true
-                                        // If Punch-IN exists but Punch-OUT is missing → Ask confirmation
-                                        if (punchInValue != "--" && punchOutValue == "--") {
-                                            showPunchOutConfirm = true
-                                            isProcessing = false   // ⭐ Allow dialog to show
-                                            isLoading = false
-                                            return@Button
-                                        }
-                                        status = "Checking location..."
-
-                                        if (ActivityCompat.checkSelfPermission(
-                                                context,
-                                                Manifest.permission.ACCESS_FINE_LOCATION
-                                            ) != PackageManager.PERMISSION_GRANTED
-                                        ) {
-                                            status = "Location permission not granted"
-                                            return@Button
-                                        }
-
-                                        fused.lastLocation.addOnSuccessListener { loc ->
-                                            if (loc != null) captureAndVerifyFace(loc)
-                                            else showDialog(
-                                                title = "Location Error",
-                                                message = "Unable to get your current location. Please try again.",
-                                                icon = R.drawable.loaction
-                                            )
-                                            isProcessing = false
-                                            isLoading = false
-
-                                        }
-                                    },
-                                    enabled = !isLoading,   // disable while loading
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight()
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .background(
-                                                brush = Brush.linearGradient(
-                                                    colors = listOf(graentDark2, graentlight1),
-                                                    start = Offset(0f, Float.POSITIVE_INFINITY),
-                                                    end = Offset(Float.POSITIVE_INFINITY, 0f)
-                                                ),
-                                                shape = RoundedCornerShape(12.dp)
-                                            )
-                                            .fillMaxSize(),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (isLoading) {
-                                            CircularProgressIndicator(
-                                                color = Color.White,
-                                                strokeWidth = 2.dp,
-                                                modifier = Modifier.size(24.dp)
-                                            )
-                                        } else {
-                                            Text(
-                                                "Capture Face",
-                                                color = Color.White,
-                                                fontWeight = FontWeight.SemiBold,
-                                                fontSize = 15.sp
-                                            )
-
-                                        }
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.width(10.dp))
-
-                                // 👉 BUTTON 2 — Lunch Break
-                                Button(
-                                    onClick = {
-                                        if (!isInsideOffice) {
-                                            showDialog(
-                                                title = "Not Inside Office",
-                                                message = "Lunch break can only be taken at office location.",
-                                                icon = R.drawable.away_from_office
-                                            )
-                                            isLoading = false
-
-                                            return@Button
-                                        }
-
-                                        viewModel.takeLunchBreak()
-                                    },
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxHeight()
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .background(
-                                                brush = Brush.linearGradient(
-                                                    colors = listOf(
-                                                        Color(0xFFff8a00),
-                                                        Color(0xFFffdd00)
-                                                    ),
-                                                    start = Offset(0f, Float.POSITIVE_INFINITY),
-                                                    end = Offset(Float.POSITIVE_INFINITY, 0f)
-                                                ),
-                                                shape = RoundedCornerShape(12.dp)
-                                            )
-                                            .fillMaxSize(),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            "Lunch Break",
-                                            color = Color.White,
-                                            fontWeight = FontWeight.SemiBold,
-                                            fontSize = 15.sp
-                                        )
-                                    }
                                 }
                             }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = status,
-                                color = colorScheme.onBackground,
-                                modifier = Modifier.offset(y = 30.dp)
-                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        // 👉 BUTTON 2 — Lunch Break
+                        Button(
+                            onClick = {
+                                if (!isInsideOffice) {
+                                    showDialog(
+                                        title = "Not Inside Office",
+                                        message = "Lunch break can only be taken at office location.",
+                                        icon = R.drawable.away_from_office
+                                    )
+                                    isLoading = false
+
+                                    return@Button
+                                }
+
+                                viewModel.takeLunchBreak()
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        brush = Brush.linearGradient(
+                                            colors = listOf(
+                                                Color(0xFFff8a00), Color(0xFFffdd00)
+                                            ),
+                                            start = Offset(0f, Float.POSITIVE_INFINITY),
+                                            end = Offset(Float.POSITIVE_INFINITY, 0f)
+                                        ), shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .fillMaxSize(), contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Lunch Break",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 15.sp
+                                )
+                            }
                         }
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = status,
+                        color = colorScheme.onBackground,
+                        modifier = Modifier.offset(y = 30.dp)
+                    )
                 }
+            }
+        }
         if (showFullImage) {
             FullScreenImageDialog(
                 imageUrl = Constants.BASE_URL + (imagePath ?: ""),
-                onDismiss = { showFullImage = false }
-            )
+                onDismiss = { showFullImage = false })
         }
         if (showPunchOutConfirm) {
             AlertDialog(
@@ -952,8 +1054,7 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
                             isLoading = true
 
                             if (ActivityCompat.checkSelfPermission(
-                                    context,
-                                    Manifest.permission.ACCESS_FINE_LOCATION
+                                    context, Manifest.permission.ACCESS_FINE_LOCATION
                                 ) != PackageManager.PERMISSION_GRANTED
                             ) {
                                 status = "Location permission not granted"
@@ -972,28 +1073,24 @@ fun FaceAttendanceScreen(viewModel: AttendanceViewModel, navController: NavHostC
 
                                 // do NOT reset here — captureAndVerifyFace will reset
                             }
-                        }
-                    ){ Text("Yes") }
+                        }) { Text("Yes") }
                 },
                 dismissButton = {
                     TextButton(
-                        onClick = { showPunchOutConfirm = false
+                        onClick = {
+                            showPunchOutConfirm = false
                             isLoading = false
-                        }
-                    ) { Text("No") }
-                }
-            )
+                        }) { Text("No") }
+                })
         }
 
 
     }
 }
+
 @Composable
 fun GradientBorderInfoBox(
-    label: String,
-    value: String,
-    gradientColors: List<Color>,
-    modifier: Modifier = Modifier
+    label: String, value: String, gradientColors: List<Color>, modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
@@ -1011,17 +1108,11 @@ fun GradientBorderInfoBox(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                text = label,
-                color = Color.Gray,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
+                text = label, color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Medium
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = value,
-                color = Color.Black,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+                text = value, color = Color.Black, fontSize = 18.sp, fontWeight = FontWeight.Bold
             )
         }
     }

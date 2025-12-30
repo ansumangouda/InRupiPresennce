@@ -43,6 +43,7 @@ android {
 
 dependencies {
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.ui)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
     implementation(libs.androidx.core.ktx)
@@ -99,5 +100,8 @@ dependencies {
     implementation(libs.tensorflow.lite.support)
 
     implementation(libs.lottie.compose)
+    //blur view
+
+    implementation(libs.blurview)
 
 }

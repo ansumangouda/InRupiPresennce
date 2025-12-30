@@ -4,8 +4,11 @@ package com.inrupipresennce.data.api
 
 import com.inrupipresennce.data.api.model.AttendanceResponse
 import com.inrupipresennce.data.api.model.AttendanceTodayResponse
+import com.inrupipresennce.data.api.model.BirthdayResponse
+import com.inrupipresennce.data.api.model.EarlyBirdResponse
 import com.inrupipresennce.data.api.model.LoginResult
 import com.inrupipresennce.data.api.model.LunchResponse
+import com.inrupipresennce.data.api.model.OffTodayResponse
 import com.inrupipresennce.data.api.model.PresenceResponse
 import com.inrupipresennce.data.api.model.request.LoginRequest
 import okhttp3.MultipartBody
@@ -50,5 +53,17 @@ interface ApiService {
     suspend fun lunchBreak(
         @Path("admin_id") adminId: Int
     ): Response<LunchResponse>
+
+    @GET("wish-them")
+    suspend fun getBirthdays(): Response<BirthdayResponse>
+
+    @GET("off-today")
+    suspend fun getOffToday(): Response<OffTodayResponse>
+
+    @GET("early-bird")
+    suspend fun getEarlyBirdReport(): Response<EarlyBirdResponse>
+
+
+
 
 }
