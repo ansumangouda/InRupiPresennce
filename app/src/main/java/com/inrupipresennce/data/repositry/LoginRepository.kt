@@ -2,8 +2,8 @@ package com.inrupipresennce.data.repositry
 
 import android.content.Context
 import com.inrupipresennce.data.api.ApiClient
-import com.inrupipresennce.data.api.model.LoginResult
-import com.inrupipresennce.data.api.model.request.LoginRequest
+import com.inrupipresennce.data.model.LoginResult
+import com.inrupipresennce.data.model.request.LoginRequest
 import com.inrupipresennce.data.valu.Constants
 import com.inrupipresennce.utils.PreferenceHelper
 

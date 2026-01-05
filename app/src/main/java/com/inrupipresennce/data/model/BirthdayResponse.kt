@@ -1,7 +1,4 @@
-
-package com.inrupipresennce.data.api.model
-
-import com.google.gson.annotations.SerializedName
+package com.inrupipresennce.data.model
 
 data class BirthdayResponse(
     val status: Boolean,

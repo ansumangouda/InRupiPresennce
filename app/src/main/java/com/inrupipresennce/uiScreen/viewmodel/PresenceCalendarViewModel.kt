@@ -3,43 +3,42 @@ package com.inrupipresennce.ui.presence
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.inrupipresennce.data.api.model.PresenceRecord
+import com.inrupipresennce.data.model.PresenceRecord
 import com.inrupipresennce.data.repositry.PresenceRepository
 import com.inrupipresennce.data.valu.Constants
-
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
-class PresenceCalendarViewModel(context: Context, repository: PresenceRepository) : ViewModel() {
-
-    private val repository = PresenceRepository(context)
+class PresenceCalendarViewModel(context: Context, private val repository: PresenceRepository) : ViewModel() {
 
     private val _presenceRecords = MutableStateFlow<List<PresenceRecord>>(emptyList())
     val presenceRecords: StateFlow<List<PresenceRecord>> get() = _presenceRecords.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
-
-
     val isLoading = _isLoading.asStateFlow()
+
+    private val _currentYearMonth = MutableStateFlow(YearMonth.now())
+    val currentYearMonth: StateFlow<YearMonth> = _currentYearMonth.asStateFlow()
+
     init {
-        // ✅ Load only once when ViewModel is created
-        loadPresenceHistory(context)
+        loadPresenceHistory()
     }
 
-    fun loadPresenceHistory(context: Context) {
+    fun loadPresenceHistory() {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
+                val year = _currentYearMonth.value.year
+                val month = _currentYearMonth.value.monthValue
 
-                // ✅ Call repository instead of API directly
-                val rawRecords = repository.getPresenceHistory()
+                val rawRecords = repository.getPresenceHistory(year, month)
 
-                // ✅ Fix image URLs before storing
                 val fixedRecords = rawRecords.map { record ->
                     record.copy(
                         punch_in_image = fixImageUrl(record.punch_in_image)
@@ -56,24 +55,30 @@ class PresenceCalendarViewModel(context: Context, repository: PresenceRepository
         }
     }
 
-    // ✅ Cleans and fixes all possible URL formats
+    fun goToPreviousMonth() {
+        _currentYearMonth.value = _currentYearMonth.value.minusMonths(1)
+        loadPresenceHistory()
+    }
+
+    fun goToNextMonth() {
+        _currentYearMonth.value = _currentYearMonth.value.plusMonths(1)
+        loadPresenceHistory()
+    }
+
     private fun fixImageUrl(imagePath: String?): String? {
         if (imagePath.isNullOrBlank()) return null
 
-        val baseUrl = Constants.BASE_URL  // ✅ Use shared constant
-
+        val baseUrl = Constants.BASE_URL
 
         return when {
-            imagePath.startsWith("http") -> imagePath // already full URL
+            imagePath.startsWith("http") -> imagePath
             imagePath.startsWith("/storage/") -> baseUrl + imagePath.removePrefix("/")
             imagePath.startsWith("storage/") -> baseUrl + imagePath
             imagePath.startsWith("attendance_images/") -> baseUrl + "storage/" + imagePath
             imagePath.startsWith("/attendance_images/") -> baseUrl + "storage" + imagePath
-            else -> baseUrl + "storage/" + imagePath // fallback
+            else -> baseUrl + "storage/" + imagePath
         }
     }
-
-
 
     data class AttendanceSummary(
         val totalDays: Int,
@@ -81,69 +86,55 @@ class PresenceCalendarViewModel(context: Context, repository: PresenceRepository
         val absentDays: Int,
         val onTimeDays: Int,
         val lateDays: Int,
-        val remainingDays: Int // 👈 NEW FIELD
+        val remainingDays: Int
     )
 
     fun calculateAttendanceSummary(records: List<PresenceRecord>): AttendanceSummary {
-        if (records.isEmpty()) return AttendanceSummary(0, 0, 0, 0, 0, 0)
+        val yearMonth = _currentYearMonth.value
+        val today = LocalDate.now()
 
+        val allDaysInMonth = (1..yearMonth.lengthOfMonth())
+            .map { yearMonth.atDay(it) }
+            .filter { it.dayOfWeek.value != 7 } // Exclude Sunday
+
+        val totalWorkingDays = allDaysInMonth.size
+
+        val presentDays = records.map { LocalDate.parse(it.punch_in_at.substring(0, 10)) }.distinct()
+
+        var onTimeDays = 0
+        var lateDays = 0
         val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-        val now = LocalDateTime.now()
-        val currentMonth = now.monthValue
-        val currentYear = now.year
-        val todayDate = now.toLocalDate()
 
-        // ✅ Filter records only for the current month
-        val currentMonthRecords = records.filter { record ->
-            try {
-                val date = LocalDateTime.parse(record.punch_in_at, formatter)
-                date.monthValue == currentMonth && date.year == currentYear
-            } catch (e: Exception) {
-                false
+        records.groupBy { it.punch_in_at.substring(0, 10) }.values.forEach { dayRecords ->
+            val firstPunchIn = dayRecords.minByOrNull { it.punch_in_at }
+            firstPunchIn?.let {
+                try {
+                    val punchInTime = LocalDateTime.parse(it.punch_in_at, formatter)
+                    if (punchInTime.hour < 10 || (punchInTime.hour == 10 && punchInTime.minute <= 0)) {
+                        onTimeDays++
+                    } else {
+                        lateDays++
+                    }
+                } catch (e: Exception) {
+                    // Ignore parsing errors on invalid dates
+                }
             }
         }
 
-        // ✅ Group by unique working days (one per date)
-        val groupedByDate = currentMonthRecords.groupBy {
-            it.punch_in_at.substring(0, 10)
+        val (absentDays, remainingDays) = when {
+            yearMonth.isBefore(YearMonth.from(today)) -> {
+                Pair(totalWorkingDays - presentDays.size, 0)
+            }
+            yearMonth.isAfter(YearMonth.from(today)) -> {
+                Pair(0, totalWorkingDays)
+            }
+            else -> { // Current month
+                val pastOrTodayWorkingDays = allDaysInMonth.filter { !it.isAfter(today) }
+                val futureWorkingDays = allDaysInMonth.count { it.isAfter(today) }
+                val absent = pastOrTodayWorkingDays.count { it !in presentDays }
+                Pair(absent, futureWorkingDays)
+            }
         }
-
-        val presentDays = groupedByDate.keys.map { LocalDate.parse(it) }
-
-        // ✅ Count on-time and late days
-        var onTimeDays = 0
-        var lateDays = 0
-
-        currentMonthRecords.forEach { record ->
-            try {
-                val punchIn = LocalDateTime.parse(record.punch_in_at, formatter)
-                val hour = punchIn.hour
-                val minute = punchIn.minute
-
-                if (hour < 10 || (hour == 10 && minute <= 0)) {
-                    onTimeDays++
-                } else {
-                    lateDays++
-                }
-            } catch (_: Exception) {}
-        }
-
-        // ✅ Generate all days in current month (excluding Sundays)
-        val allDays = (1..java.time.YearMonth.of(currentYear, currentMonth).lengthOfMonth()).map {
-            LocalDate.of(currentYear, currentMonth, it)
-        }.filter { it.dayOfWeek.value != 7 } // Exclude Sunday
-
-        // ✅ Working days before or equal to today (for absence calculation)
-        val workingDaysUntilToday = allDays.filter { !it.isAfter(todayDate) }
-
-        // ✅ Days left after today (future working days)
-        val remainingWorkingDays = allDays.count { it.isAfter(todayDate) }
-
-        // ✅ Count absents (past working days not in present list)
-        val absentDays = workingDaysUntilToday.count { it !in presentDays }
-
-        // ✅ Total working days (excluding Sundays)
-        val totalWorkingDays = allDays.size
 
         return AttendanceSummary(
             totalDays = totalWorkingDays,
@@ -151,12 +142,9 @@ class PresenceCalendarViewModel(context: Context, repository: PresenceRepository
             absentDays = absentDays,
             onTimeDays = onTimeDays,
             lateDays = lateDays,
-            remainingDays = remainingWorkingDays
+            remainingDays = remainingDays
         )
     }
-
-
-
 
     data class DailyWorkReport(
         val date: String,
@@ -167,7 +155,6 @@ class PresenceCalendarViewModel(context: Context, repository: PresenceRepository
     fun getDailyWorkReport(records: List<PresenceRecord>): List<DailyWorkReport> {
         val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
-        // Group by day (YYYY-MM-DD)
         val grouped = records.groupBy { it.punch_in_at.substring(0, 10) }
 
         return grouped.map { (dateStr, dayRecords) ->
@@ -194,9 +181,4 @@ class PresenceCalendarViewModel(context: Context, repository: PresenceRepository
             )
         }.sortedBy { it.date }
     }
-
-
-
-
-
 }

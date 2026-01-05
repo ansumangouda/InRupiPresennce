@@ -50,8 +50,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -98,7 +96,9 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.inrupipresennce.R
-import com.inrupipresennce.data.api.model.EarlyTeammate
+import com.inrupipresennce.data.model.EarlyTeammate
+import com.inrupipresennce.data.model.TeamMember
+import com.inrupipresennce.data.model.Teammate
 import com.inrupipresennce.data.valu.Constants
 import com.inrupipresennce.ui.theme.graentDark2
 import com.inrupipresennce.ui.theme.graentlight1
@@ -130,6 +130,9 @@ fun Facescreen(viewModel: AttendanceViewModel) {
     val today by viewModel.todayAttendance.collectAsState()
     val earlyToday by viewModel.earlyBirdToday.collectAsState()
     val earlyMonthly by viewModel.earlyBirdMonthly.collectAsState()
+    val teamMates by viewModel.teamMates.collectAsState()
+    var selectedTeammate by remember { mutableStateOf<TeamMember?>(null) }
+
 
     val currentTime = remember { mutableStateOf("") }
     val currentDate = remember { mutableStateOf("") }
@@ -159,7 +162,12 @@ fun Facescreen(viewModel: AttendanceViewModel) {
     var isProcessing by remember { mutableStateOf(false) }
     var currentDistance by remember { mutableStateOf<Float?>(null) }
     var isInsideOffice by remember { mutableStateOf(false) }
+    var isOfficeWifi by remember { mutableStateOf(false) }
     var showAllBirthdays by remember { mutableStateOf(false) }
+    val officeBssids = setOf(
+        "5C:E9:31:E8:8A:5F", // 2.4 GHz
+        "5C:E9:31:E8:8A:61"  // 5 GHz
+    )
 
 
 //loaction
@@ -172,39 +180,50 @@ fun Facescreen(viewModel: AttendanceViewModel) {
 
     if (showPunchOutConfirm) {
         AlertDialog(
-            onDismissRequest = { },
+            onDismissRequest = { showPunchOutConfirm = false },
             title = { Text("Confirm Punch Out") },
             text = { Text("You have already punched in. Do you want to punch out?") },
             confirmButton = {
                 TextButton(
                     onClick = {
+                        showPunchOutConfirm = false
+                        isProcessing = true
                         // Existing punch-in logic is reused for punch-out
                         if (ActivityCompat.checkSelfPermission(
                                 context, Manifest.permission.ACCESS_FINE_LOCATION
                             ) != PackageManager.PERMISSION_GRANTED
                         ) {
+                            viewModel.setErrorMessage("Location permission is required.")
+                            isProcessing = false
                             return@TextButton
                         }
                         fused.lastLocation.addOnSuccessListener { loc ->
-                            if (loc != null) captureAndVerifyFace(
-                                loc,
-                                context,
-                                imageCapture,
-                                coroutineScope,
-                                viewModel,
-                                onDistanceUpdate = { newDistance -> currentDistance = newDistance },
-                                onIsInsideOfficeUpdate = { newIsInside ->
-                                    isInsideOffice = newIsInside
-                                },
-                                onError = { msg -> viewModel.setErrorMessage(msg) },
-                                onDone = { isProcessing = false })
+                            if (loc != null) {
+                                captureAndVerifyFace(
+                                    loc,
+                                    context,
+                                    imageCapture,
+                                    coroutineScope,
+                                    viewModel,
+                                    onDistanceUpdate = { newDistance -> currentDistance = newDistance },
+                                    onIsInsideOfficeUpdate = { newIsInside -> isInsideOffice = newIsInside },
+                                    onError = { msg ->
+                                        viewModel.setErrorMessage(msg)
+                                        isProcessing = false // Also turn off processing on error
+                                    },
+                                    onDone = { isProcessing = false }
+                                )
+                            } else {
+                                viewModel.setErrorMessage("Could not get location.")
+                                isProcessing = false
+                            }
                         }
                     }) {
                     Text("Yes, Punch Out")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { }) {
+                TextButton(onClick = { showPunchOutConfirm = false }) {
                     Text("Cancel")
                 }
             })
@@ -215,7 +234,8 @@ fun Facescreen(viewModel: AttendanceViewModel) {
                 .fillMaxSize()
                 .padding(bottom = 1.dp)
                 .background(Color(0xFFF6F6F6))
-        ) {
+        )
+        {
             item {
                 HomePageHeader(
                     currentTime,
@@ -252,9 +272,12 @@ fun Facescreen(viewModel: AttendanceViewModel) {
                     viewModel,
                     onDistanceUpdate = { newDistance -> currentDistance = newDistance },
                     onIsInsideOfficeUpdate = { newIsInside -> isInsideOffice = newIsInside },
-                    onShowPunchOutConfirmChange = {},
-                    onProcessingChange = { },
-                    isInsideOffice = isInsideOffice
+                    onShowPunchOutConfirmChange = { showPunchOutConfirm = it },
+                    onProcessingChange = { isProcessing = it },
+                    isInsideOffice = isInsideOffice,
+                    isOfficeWifi = isOfficeWifi
+
+
                 )
             }
 
@@ -270,6 +293,14 @@ fun Facescreen(viewModel: AttendanceViewModel) {
             }
             item {
                 OffTodaySection(viewModel)
+            }
+             item {
+                TeamMatesSection(
+                    viewModel = viewModel,
+                    onTeammateClick = { teammate ->
+                        selectedTeammate = teammate
+                    }
+                )
             }
 
             item {
@@ -302,6 +333,12 @@ fun Facescreen(viewModel: AttendanceViewModel) {
              item { TeammateSection(title = "Early Bird for the day", teammates = getEarlyBirds()) }
              item { TeammateSection(title = "Early Bird Ranking", teammates = getEarlyBirdRanking()) }*/
         }
+    if (selectedTeammate != null) {
+        TeamMateDetailsDialog(
+            teammate = selectedTeammate!!,
+            onDismiss = { selectedTeammate = null }
+        )
+    }
 
     val permissionsLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -342,6 +379,15 @@ fun Facescreen(viewModel: AttendanceViewModel) {
             fused.removeLocationUpdates(locationCallback)
         }
     }
+    LaunchedEffect(Unit) {
+        while (true) {
+            isOfficeWifi = isConnectedToOfficeWifi(
+                context,
+                officeBssids
+            )
+            delay(2000) // every 2 seconds
+        }
+    }
 
     LaunchedEffect(Unit) {
         permissionsLauncher.launch(
@@ -352,6 +398,7 @@ fun Facescreen(viewModel: AttendanceViewModel) {
         viewModel.loadTodayAttendance()
         viewModel.loadBirthdays()
         viewModel.loadEarlyBirds()
+        viewModel.loadTeamMates()
         coroutineScope.launch {
             while (true) {
                 val date = Date()
@@ -414,9 +461,36 @@ fun Facescreen(viewModel: AttendanceViewModel) {
 
     if (showFullImage) {
         FullScreenImageDialog(
-            imageUrl = Constants.BASE_URL + (imagePath ?: ""), onDismiss = { })
+            imageUrl = Constants.BASE_URL + (imagePath ?: ""), onDismiss = { showFullImage = false}
+        )
     }
 }
+fun isConnectedToOfficeWifi(context: Context, officeBssids: Set<String>): Boolean {
+
+    // 🔐 Runtime permission check
+    if (ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) != PackageManager.PERMISSION_GRANTED
+    ) {
+        Log.w("OfficeWiFi", "Location permission not granted")
+        return false
+    }
+
+    val wifiManager =
+        context.applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+
+    val info = wifiManager.connectionInfo ?: return false
+    val currentBssid = info.bssid ?: return false
+
+    Log.d("OfficeWiFi", "Current BSSID = $currentBssid")
+
+    return officeBssids.any {
+        it.equals(currentBssid, ignoreCase = true)
+    }
+}
+
+
 
 fun alignFace(bitmap: Bitmap, face: com.google.mlkit.vision.face.Face): Bitmap {
     val leftEye = face.getLandmark(com.google.mlkit.vision.face.FaceLandmark.LEFT_EYE)?.position
@@ -460,15 +534,30 @@ fun captureAndVerifyFace(
     Location.distanceBetween(
         loc.latitude, loc.longitude, officeLat, officeLon, distance
     )
+    val isGpsInside = distance[0] <= officeRadius.toFloat()
+    val isOfficeWifi = isConnectedToOfficeWifi(context, setOf(
+        "5C:E9:31:E8:8A:5F",
+        "5C:E9:31:E8:8A:61"
+    ))
 
     onDistanceUpdate(distance[0])
+    onIsInsideOfficeUpdate(isGpsInside || isOfficeWifi)
+
+// FINAL CHECK
+    if (!isGpsInside && !isOfficeWifi) {
+        onError("You must be inside office or connected to office Wi-Fi")
+        onDone()
+        return
+    }
+
+ /*   onDistanceUpdate(distance[0])
     onIsInsideOfficeUpdate(distance[0] <= officeRadius.toFloat())
     val radius = officeRadius.toFloat()
     if (distance[0] > radius) {
         onError("You are outside office area")
         onDone()
         return
-    }
+    }*/
 
     val file = File(context.cacheDir, "${System.currentTimeMillis()}.jpg")
     val output = ImageCapture.OutputFileOptions.Builder(file).build()
@@ -830,11 +919,12 @@ fun ActionButtons(
     onIsInsideOfficeUpdate: (Boolean) -> Unit,
     onShowPunchOutConfirmChange: (Boolean) -> Unit,
     onProcessingChange: (Boolean) -> Unit,
-    isInsideOffice: Boolean
+    isInsideOffice: Boolean,
+    isOfficeWifi: Boolean
 ) {
-
     val lunchButtonText =
         if (lunchInValue != "--" && lunchOutValue == "--") "Lunch End" else "Lunch Start"
+    val punchButtonText = if (punchInValue != "--" && punchOutValue == "--") "Punch Out" else "Punch In"
 
     Row(
         modifier = Modifier
@@ -842,9 +932,10 @@ fun ActionButtons(
             .padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        val canPunch = isInsideOffice || isOfficeWifi
 
         Button(
-            enabled = imageCapture != null && !isProcessing && isInsideOffice,
+            enabled = imageCapture != null && !isProcessing && canPunch,
             onClick = {
 
                 Log.d("PunchIn", "Punch In clicked")
@@ -902,16 +993,57 @@ fun ActionButtons(
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB7DB4F)),
             shape = RoundedCornerShape(8.dp)
         ) {
-            Text("Punch In", color = Color.Black)
+            Text(punchButtonText, color = Color.Black)
         }
 
         Button(
-            enabled = punchInValue != "--" && punchOutValue == "--",
+            enabled = punchInValue != "--" && punchOutValue == "--" && !isProcessing && canPunch,
             onClick = {
-                if (punchInValue != "--" && punchOutValue == "--") {
-                    viewModel.takeLunchBreak()
-                } else {
-                    viewModel.setErrorMessage("You need to punch in first.")
+                if (isProcessing) return@Button
+
+                if (ActivityCompat.checkSelfPermission(
+                        context, Manifest.permission.ACCESS_FINE_LOCATION
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    viewModel.setErrorMessage("Location permission required")
+                    return@Button
+                }
+
+                onProcessingChange(true)
+                fused.lastLocation.addOnSuccessListener { loc ->
+                    if (loc == null) {
+                        viewModel.setErrorMessage("Unable to fetch location")
+                        onProcessingChange(false)
+                        return@addOnSuccessListener
+                    }
+
+                    val distance = FloatArray(1)
+                    val officeLat = PreferenceHelper.getOfficeLat(context)
+                    val officeLon = PreferenceHelper.getOfficeLon(context)
+                    val officeRadius = PreferenceHelper.getOfficeRadius(context)
+
+                    Location.distanceBetween(
+                        loc.latitude, loc.longitude, officeLat, officeLon, distance
+                    )
+                    val isGpsInside = distance[0] <= officeRadius.toFloat()
+                    val isWifiConnected = isConnectedToOfficeWifi(context, setOf("5C:E9:31:E8:8A:5F", "5C:E9:31:E8:8A:61"))
+
+                    onDistanceUpdate(distance[0])
+                    onIsInsideOfficeUpdate(isGpsInside || isWifiConnected)
+
+                    if (isGpsInside || isWifiConnected) {
+                        if (punchInValue != "--" && punchOutValue == "--") {
+                            viewModel.takeLunchBreak()
+                        } else {
+                            viewModel.setErrorMessage("You need to punch in first.")
+                        }
+                    } else {
+                        viewModel.setErrorMessage("You must be inside office or connected to office Wi-Fi")
+                    }
+                    onProcessingChange(false)
+                }.addOnFailureListener {
+                    viewModel.setErrorMessage("Location error")
+                    onProcessingChange(false)
                 }
             },
             modifier = Modifier.weight(1f),
@@ -926,7 +1058,7 @@ fun ActionButtons(
 
 @Composable
 fun ExpandableTeammateRow(
-    teammates: List<com.inrupipresennce.data.api.model.Teammate>,
+    teammates: List<Teammate>,
     remainingCount: Int,
     isExpanded: Boolean,
     onExpandClick: () -> Unit
@@ -1003,6 +1135,116 @@ fun OffTodaySection(viewModel: AttendanceViewModel) {
         }
     }
 }
+@Composable
+fun TeamMatesSection(
+    viewModel: AttendanceViewModel,
+    onTeammateClick: (TeamMember) -> Unit
+) {
+    val teamMates by viewModel.teamMates.collectAsState()
+    var isExpanded by remember { mutableStateOf(false) }
+
+    val maxVisible = 5
+    val visibleList = if (isExpanded) teamMates else teamMates.take(maxVisible)
+    val remainingCount = teamMates.size - maxVisible
+
+    LaunchedEffect(Unit) {
+        viewModel.loadTeamMates()
+    }
+
+    if (teamMates.isNotEmpty()) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            Text(
+                text = "Team Mates",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                color = Color(0xFF0B1500)
+            )
+            LazyRow(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(visibleList) { teammate ->
+                    TeamMateItem(teammate = teammate, onClick = { onTeammateClick(teammate) })
+                }
+                if (!isExpanded && remainingCount > 0) {
+                    item {
+                        ExpandMoreBubble(
+                            count = remainingCount,
+                            onClick = { isExpanded = true }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+@Composable
+fun TeamMateItem(teammate: TeamMember, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(64.dp)
+            .clickable(onClick = onClick)
+    ) {
+        AsyncImage(
+            model = "${Constants.BASE_URL}/${teammate.details.faceDescriptor}",
+            contentDescription = teammate.name,
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape),
+            contentScale = ContentScale.Crop,
+            placeholder = painterResource(R.drawable.face_scan),
+            error = painterResource(R.drawable.face_scan)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            teammate.name,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            color = Color.Black
+        )
+    }
+}
+
+@Composable
+fun TeamMateDetailsDialog(teammate: TeamMember, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                AsyncImage(
+                    model = "${Constants.BASE_URL}/${teammate.details.faceDescriptor}",
+                    contentDescription = teammate.name,
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(R.drawable.face_scan),
+                    error = painterResource(R.drawable.face_scan)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(teammate.name, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                Text(teammate.details.designation ?: "No designation", fontSize = 16.sp, color = Color.Gray)
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Employee ID: ${teammate.details.empId}", fontSize = 14.sp)
+                Text("Phone: ${teammate.phone}", fontSize = 14.sp)
+                Text("Joining Date: ${teammate.details.joiningDate}", fontSize = 14.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(onClick = onDismiss) {
+                    Text("Close")
+                }
+            }
+        }
+    }
+}
+
 
 
 @Composable
@@ -1113,7 +1355,7 @@ fun EarlyBirdItem(teammate: EarlyTeammate) {
 
 
 @Composable
-fun TeammateItem(teammate: com.inrupipresennce.data.api.model.Teammate) {
+fun TeammateItem(teammate: Teammate) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp)
     ) {
@@ -1144,5 +1386,3 @@ fun TeammateItem(teammate: com.inrupipresennce.data.api.model.Teammate) {
         )
     }
 }
-
-

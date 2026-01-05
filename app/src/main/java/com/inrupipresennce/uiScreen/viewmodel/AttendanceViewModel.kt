@@ -3,12 +3,12 @@ package com.inrupipresennce.uiScreen.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.inrupipresennce.data.api.model.AttendanceResponse
-import com.inrupipresennce.data.api.model.AttendanceTodayResponse
-import com.inrupipresennce.data.api.model.BirthdayResponse
-import com.inrupipresennce.data.api.model.EarlyTeammate
-import com.inrupipresennce.data.api.model.LunchResponse
-import com.inrupipresennce.data.api.model.Teammate
+import com.inrupipresennce.data.model.AttendanceResponse
+import com.inrupipresennce.data.model.AttendanceTodayResponse
+import com.inrupipresennce.data.model.EarlyTeammate
+import com.inrupipresennce.data.model.LunchResponse
+import com.inrupipresennce.data.model.TeamMember
+import com.inrupipresennce.data.model.Teammate
 import com.inrupipresennce.data.repositry.AttendanceRepository
 import com.inrupipresennce.utils.PreferenceHelper
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,8 +52,11 @@ open class AttendanceViewModel(val repository: AttendanceRepository, val context
     private val _earlyBirdMonthly = MutableStateFlow<List<EarlyTeammate>>(emptyList())
     val earlyBirdMonthly: StateFlow<List<EarlyTeammate>> = _earlyBirdMonthly
 
+    private val _teamMates = MutableStateFlow<List<TeamMember>>(emptyList())
+    val teamMates: StateFlow<List<TeamMember>> = _teamMates
 
 
+    private var isTakingLunchBreak = false
     val adminId: Int
         get() = PreferenceHelper.getAdminId(context)
 
@@ -77,6 +80,15 @@ open class AttendanceViewModel(val repository: AttendanceRepository, val context
         viewModelScope.launch {
             val result = repository.getTodayAttendance(adminId)
             _todayAttendance.value = result
+        }
+    }
+
+    fun loadTeamMates() {
+        viewModelScope.launch {
+            val response = repository.getTeamMates(adminId)
+            if (response?.status == true) {
+                _teamMates.value = response.team
+            }
         }
     }
 
@@ -163,8 +175,6 @@ open class AttendanceViewModel(val repository: AttendanceRepository, val context
             }
         }
     }
-
-
     fun clearAttendanceEvent() {
         _attendanceState.value = null
     }
@@ -178,9 +188,20 @@ open class AttendanceViewModel(val repository: AttendanceRepository, val context
     }
 
     fun takeLunchBreak() {
+        if (isTakingLunchBreak) return
+        isTakingLunchBreak = true
         viewModelScope.launch {
-            val response = repository.lunchBreak(adminId)
-            _lunchState.value = response
+            try {
+                val response = repository.lunchBreak(adminId)
+                if (response?.status == true) {
+                    _successMessage.value = response.message
+                } else {
+                    _errorMessage.value = response?.message ?: "An unknown error has occurred"
+                }
+                _lunchState.value = response
+            } finally {
+                isTakingLunchBreak = false
+            }
         }
     }
     fun clearLunchEvent() {
@@ -201,6 +222,7 @@ fun formatBirthday(dob: String): String {
         ""
     }
 }
+
 
 
 

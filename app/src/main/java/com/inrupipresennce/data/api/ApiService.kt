@@ -1,16 +1,22 @@
+
 package com.inrupipresennce.data.api
 
 
 
-import com.inrupipresennce.data.api.model.AttendanceResponse
-import com.inrupipresennce.data.api.model.AttendanceTodayResponse
-import com.inrupipresennce.data.api.model.BirthdayResponse
-import com.inrupipresennce.data.api.model.EarlyBirdResponse
-import com.inrupipresennce.data.api.model.LoginResult
-import com.inrupipresennce.data.api.model.LunchResponse
-import com.inrupipresennce.data.api.model.OffTodayResponse
-import com.inrupipresennce.data.api.model.PresenceResponse
-import com.inrupipresennce.data.api.model.request.LoginRequest
+import com.inrupipresennce.data.model.AttendanceRequest
+import com.inrupipresennce.data.model.AttendanceResponse
+import com.inrupipresennce.data.model.AttendanceTodayResponse
+import com.inrupipresennce.data.model.BirthdayResponse
+import com.inrupipresennce.data.model.EarlyBirdResponse
+import com.inrupipresennce.data.model.LeaveResponse
+import com.inrupipresennce.data.model.LoginResult
+import com.inrupipresennce.data.model.LunchResponse
+import com.inrupipresennce.data.model.OffTodayResponse
+import com.inrupipresennce.data.model.PayslipResponse
+import com.inrupipresennce.data.model.PresenceResponse
+import com.inrupipresennce.data.model.TeamMatesResponse
+import com.inrupipresennce.data.model.request.ApplyLeaveRequest
+import com.inrupipresennce.data.model.request.LoginRequest
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.ResponseBody
@@ -37,10 +43,9 @@ interface ApiService {
         @Url fileUrl: String
     ): Response<ResponseBody>
 
-    @FormUrlEncoded
     @POST("attendance/history")
     suspend fun getPresenceHistory(
-        @Field("admin_id") adminId: Int
+        @Body request: AttendanceRequest
     ): PresenceResponse
 
 
@@ -63,7 +68,28 @@ interface ApiService {
     @GET("early-bird")
     suspend fun getEarlyBirdReport(): Response<EarlyBirdResponse>
 
+    @GET("team-mates/{admin_id}")
+    suspend fun getTeamMates(@Path("admin_id") adminId: Int): Response<TeamMatesResponse>
 
+    @GET("payslips/{admin_id}")
+    suspend fun getPayslips(@Path("admin_id") adminId: Int): PayslipResponse
+
+    @GET("leaves/{admin_id}")
+    suspend fun getLeaves(
+        @Path("admin_id") adminId: Int,
+        @Query("date") year: String? = null
+    ): LeaveResponse
+
+    @POST("leaves")
+    suspend fun applyLeave(
+        @Body request: ApplyLeaveRequest
+    ): LeaveResponse
+
+    @PUT("leaves/{leave_id}")
+    suspend fun updateLeave(
+        @Path("leave_id") leaveId: Int,
+        @Body request: ApplyLeaveRequest
+    ): LeaveResponse
 
 
 }

@@ -180,7 +180,6 @@ fun CalendarDayCell(day: CalendarDay) {
 @Preview(showBackground = true)
 @Composable
 fun CalendarScreenPreview() {
-    CustomCalendarScreen()
 }
 
 

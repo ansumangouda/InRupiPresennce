@@ -8,8 +8,22 @@ android {
     namespace = "com.inrupipresennce"
     compileSdk {
         version = release(36)
-    }
+        androidResources {
+            noCompress += "tflite"
+        }
+        packaging {
+            jniLibs {
+                useLegacyPackaging = false
+            }
+        }
+        defaultConfig {
+            ndk {
+                //noinspection ChromeOsAbiSupport
+                abiFilters += listOf("arm64-v8a")
+            }
+        }
 
+    }
     defaultConfig {
         applicationId = "com.inrupipresennce"
         minSdk = 30
@@ -19,7 +33,9 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
-
+    configurations.all {
+        exclude(group = "com.google.android.gms", module = "play-services-tflite-java")
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -33,18 +49,22 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
     buildFeatures {
         compose = true
     }
 }
 
+// Add this new block to set the Kotlin compiler options
+kotlin {
+    jvmToolchain(17)
+}
+
 dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.ui)
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    implementation(libs.androidx.room.external.antlr)
+    implementation(libs.androidx.navigation.runtime.ktx)
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -77,15 +97,16 @@ dependencies {
 // Location
     implementation(libs.play.services.location)
 // TensorFlow Lite
-    implementation(libs.tensorflow.lite)
-    implementation(libs.tensorflow.lite.support)
+    implementation("org.tensorflow:tensorflow-lite:2.17.0")
+    implementation("org.tensorflow:tensorflow-lite-support:0.5.0")
 // JSON & Coroutine
     implementation(libs.json)
     implementation(libs.kotlinx.coroutines.android)
 
-    implementation(libs.face.detection)
-    implementation(libs.tensorflow.lite.v2140)
-    implementation(libs.tensorflow.lite.support.v044)
+  // implementation(libs.face.detection)
+    implementation(libs.face.detection.v1616)
+   // implementation(libs.tensorflow.lite.v2140)
+  //  implementation(libs.tensorflow.lite.support.v044)
     implementation(libs.kotlinx.coroutines.play.services)
 
     //view model
@@ -96,8 +117,8 @@ dependencies {
     implementation(libs.accompanist.flowlayout)
 
 
-    implementation(libs.tensorflow.lite.v2120)
-    implementation(libs.tensorflow.lite.support)
+    //implementation(libs.tensorflow.lite.v2120)
+   // implementation(libs.tensorflow.lite.support)
 
     implementation(libs.lottie.compose)
     //blur view

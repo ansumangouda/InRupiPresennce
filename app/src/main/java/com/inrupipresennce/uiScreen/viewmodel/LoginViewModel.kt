@@ -3,7 +3,7 @@ package com.inrupipresennce.uiScreen.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.inrupipresennce.data.api.model.LoginResult
+import com.inrupipresennce.data.model.LoginResult
 import com.inrupipresennce.data.repositry.LoginRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

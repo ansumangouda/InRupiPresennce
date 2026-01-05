@@ -2,12 +2,13 @@ package com.inrupipresennce.data.repositry
 
 import android.content.Context
 import com.inrupipresennce.data.api.ApiClient
-import com.inrupipresennce.data.api.model.AttendanceResponse
-import com.inrupipresennce.data.api.model.AttendanceTodayResponse
-import com.inrupipresennce.data.api.model.BirthdayResponse
-import com.inrupipresennce.data.api.model.EarlyBirdResponse
-import com.inrupipresennce.data.api.model.LunchResponse
-import com.inrupipresennce.data.api.model.OffTodayResponse
+import com.inrupipresennce.data.model.AttendanceResponse
+import com.inrupipresennce.data.model.AttendanceTodayResponse
+import com.inrupipresennce.data.model.BirthdayResponse
+import com.inrupipresennce.data.model.EarlyBirdResponse
+import com.inrupipresennce.data.model.LunchResponse
+import com.inrupipresennce.data.model.OffTodayResponse
+import com.inrupipresennce.data.model.TeamMatesResponse
 import com.inrupipresennce.data.valu.Constants
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -121,6 +122,15 @@ class AttendanceRepository {
     suspend fun getEarlyBirdReport(): EarlyBirdResponse? {
         return try {
             val response = api.getEarlyBirdReport()
+            if (response.isSuccessful) response.body() else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun getTeamMates(adminId: Int): TeamMatesResponse? {
+        return try {
+            val response = api.getTeamMates(adminId)
             if (response.isSuccessful) response.body() else null
         } catch (e: Exception) {
             null

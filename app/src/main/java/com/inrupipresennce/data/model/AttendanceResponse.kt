@@ -1,4 +1,4 @@
-package com.inrupipresennce.data.api.model
+package com.inrupipresennce.data.model
 
 data class AttendanceResponse(
     val success: Boolean,

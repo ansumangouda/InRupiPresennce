@@ -1,4 +1,4 @@
-package com.inrupipresennce.data.api.model
+package com.inrupipresennce.data.model
 
 import com.google.gson.annotations.SerializedName
 
