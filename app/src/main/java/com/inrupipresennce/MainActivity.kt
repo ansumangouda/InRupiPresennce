@@ -55,7 +55,8 @@ class MainActivity : ComponentActivity() {
                     bottomBar = {
                         // ✅ Show bottom bar only for main routes
                         if (currentRoute.startsWith("face") ||
-                            currentRoute.startsWith("attendance")
+                            currentRoute.startsWith("attendance") ||
+                            currentRoute.startsWith("holiday_calendar")
                         ) {
                             CustomBottomNavBar(
                                 items = bottomNavItems,

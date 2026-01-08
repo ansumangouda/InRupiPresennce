@@ -30,6 +30,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -84,10 +85,10 @@ fun LeaveScreen(navController: NavController) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
-        containerColor = Color.White
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -180,17 +181,17 @@ fun LeaveScreen(navController: NavController) {
 @Composable
 fun StatCard(value: String, label: String, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier.border(1.dp, Color(0xFF5F9DF5), RoundedCornerShape(8.dp)),
+        modifier = modifier.border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp)),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FBFF))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(text = value, fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.Black)
-            Text(text = label, fontSize = 14.sp, color = Color.Gray)
+            Text(text = value, fontWeight = FontWeight.Bold, fontSize = 20.sp, color = MaterialTheme.colorScheme.onSurface)
+            Text(text = label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -201,7 +202,7 @@ fun LeaveRequestItem(leave: LeaveItem) {
         "approved" -> Color(0xFF4CAF50)
         "pending" -> Color(0xFFFF9800)
         "rejected" -> Color(0xFFF44336)
-        else -> Color.Gray
+        else -> MaterialTheme.colorScheme.onSurface
     }
 
     fun formatDate(dateString: String): String {
@@ -219,7 +220,7 @@ fun LeaveRequestItem(leave: LeaveItem) {
             .fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
             modifier = Modifier
@@ -250,8 +251,8 @@ fun YearSpinner(selectedYear: Int, onYearSelected: (Int) -> Unit) {
 
     Card(
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FBFF)),
-        modifier = Modifier.border(1.dp, Color(0xFF5F9DF5), RoundedCornerShape(8.dp))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,

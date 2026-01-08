@@ -990,10 +990,10 @@ fun ActionButtons(
                     }
             },
             modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB7DB4F)),
+            colors = ButtonDefaults.buttonColors(containerColor = graentlight1),
             shape = RoundedCornerShape(8.dp)
         ) {
-            Text(punchButtonText, color = Color.Black)
+            Text(punchButtonText, color = Color.White)
         }
 
         Button(

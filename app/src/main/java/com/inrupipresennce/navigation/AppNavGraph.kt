@@ -15,6 +15,7 @@ import androidx.navigation.navArgument
 import com.inrupipresennce.uiScreen.Screen.ApplyLeaveScreen
 import com.inrupipresennce.uiScreen.Screen.CalendarScreen
 import com.inrupipresennce.uiScreen.Screen.Facescreen
+import com.inrupipresennce.uiScreen.Screen.HolidayCalendarScreen
 import com.inrupipresennce.uiScreen.Screen.LeaveScreen
 import com.inrupipresennce.uiScreen.Screen.LoginScreen
 import com.inrupipresennce.uiScreen.Screen.LogoutButton
@@ -93,6 +94,9 @@ fun AppNavGraph(
 
         composable("leave") {
             LeaveScreen(navController = navController)
+        }
+        composable("holiday_calendar") {
+            HolidayCalendarScreen()
         }
 
         composable("apply_leave") {

@@ -45,8 +45,11 @@ import coil.compose.rememberAsyncImagePainter
 import com.inrupipresennce.R
 import com.inrupipresennce.data.valu.Constants
 import com.inrupipresennce.ui.presence.PresenceCalendarViewModel
+import com.inrupipresennce.ui.theme.borderBlue
 import com.inrupipresennce.ui.theme.graentDark2
 import com.inrupipresennce.ui.theme.graentlight1
+import com.inrupipresennce.ui.theme.lightBlue
+import com.inrupipresennce.ui.theme.topBorderblueDark
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 import java.time.LocalTime
@@ -159,9 +162,7 @@ fun ActionButton(text: String, painter: Painter, onClick: () -> Unit) {
 
 @Composable
 fun AttendanceStats(summary: PresenceCalendarViewModel.AttendanceSummary) {
-    val lightGreen = Color(0xFFF8FBFF)
-    val borderGreen = Color(0xFF5F9DF5)
-    val topBorderGreen = Color(0xFF003176)
+
 
     val lightRed = Color(0xFFFCE4EC)
     val borderRed = Color(0xFFF48FB1)
@@ -172,19 +173,19 @@ fun AttendanceStats(summary: PresenceCalendarViewModel.AttendanceSummary) {
             InfoCard(
                 value = summary.remainingDays.toString(),
                 label = "Working days",
-                borderColor = borderGreen,
-                topBorderColor = topBorderGreen,
-                backgroundColor = lightGreen,
-                shadowColor = borderGreen,
+                borderColor = borderBlue,
+                topBorderColor = topBorderblueDark,
+                backgroundColor = lightBlue,
+                shadowColor = borderBlue,
                 modifier = Modifier.weight(1f)
             )
             InfoCard(
                 value = summary.onTimeDays.toString(),
                 label = "On Time",
-                borderColor = borderGreen,
-                topBorderColor = topBorderGreen,
-                backgroundColor = lightGreen,
-                shadowColor = borderGreen,
+                borderColor = borderBlue,
+                topBorderColor = topBorderblueDark,
+                backgroundColor = lightBlue,
+                shadowColor = borderBlue,
                 modifier = Modifier.weight(1f)
             )
             InfoCard(
@@ -202,10 +203,10 @@ fun AttendanceStats(summary: PresenceCalendarViewModel.AttendanceSummary) {
             InfoCard(
                 value = summary.presentDays.toString(),
                 label = "Total Present",
-                borderColor = borderGreen,
-                topBorderColor = topBorderGreen,
-                backgroundColor = lightGreen,
-                shadowColor = borderGreen,
+                borderColor = borderBlue,
+                topBorderColor = topBorderblueDark,
+                backgroundColor = lightBlue,
+                shadowColor = borderBlue,
                 modifier = Modifier.weight(1f)
             )
             InfoCard(

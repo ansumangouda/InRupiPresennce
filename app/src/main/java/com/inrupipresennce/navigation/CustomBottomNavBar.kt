@@ -57,9 +57,9 @@ data class BottomNavItem(
 
 val bottomNavItems = listOf(
     BottomNavItem("Home", R.drawable.ic_home, "face"),
-    BottomNavItem("Calendar", R.drawable.calendar, "attendance"),
+    BottomNavItem("Attendance", R.drawable.calendar, "attendance"),
     BottomNavItem("Face Scan", R.drawable.face_scan2, "face"),
-    BottomNavItem("Chat", R.drawable.ic_chat, "attendance"),
+    BottomNavItem("Calendar", R.drawable.calendar, "holiday_calendar"),
     BottomNavItem("Logout", R.drawable.log_out, "logout")
 )
 

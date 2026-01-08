@@ -33,6 +33,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -144,10 +145,10 @@ fun ApplyLeaveScreen(navController: NavController) {
                         Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
-        containerColor = Color.White
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -156,7 +157,7 @@ fun ApplyLeaveScreen(navController: NavController) {
                 .padding(16.dp)
         ) {
 
-            Text("Enter dates", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text("Enter dates", fontWeight = FontWeight.Bold, fontSize = 16.sp,)
             Spacer(Modifier.height(8.dp))
             Card(
                 modifier = Modifier
@@ -167,8 +168,8 @@ fun ApplyLeaveScreen(navController: NavController) {
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Enter dates", modifier = Modifier.weight(1f))
-                        Icon(imageVector = Icons.Default.DateRange, contentDescription = "Calendar Icon")
+                        Text("Enter dates", modifier = Modifier.weight(1f),color = Color.Black)
+                        Icon(imageVector = Icons.Default.DateRange, contentDescription = "Calendar Icon", tint = Color.Black)
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -195,7 +196,7 @@ fun ApplyLeaveScreen(navController: NavController) {
 
             Text("Choose Leave Type", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             Spacer(Modifier.height(8.dp))
-            LeaveTypeDropdown(leaveType, { leaveType = it }, lightGreenBg, borderColor)
+            LeaveTypeDropdown(leaveType) { leaveType = it }
 
             Spacer(Modifier.height(16.dp))
 
@@ -209,7 +210,7 @@ fun ApplyLeaveScreen(navController: NavController) {
                 TextField(
                     value = reason,
                     onValueChange = { reason = it },
-                    placeholder = { Text("Enter reason for leave here...") },
+                    placeholder = { Text("Enter reason for leave here...",color = Color.Black) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(150.dp),
@@ -263,7 +264,7 @@ fun ApplyLeaveScreen(navController: NavController) {
 
             Spacer(Modifier.height(24.dp))
 
-            Text("Upcoming Holidays", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            Text("Upcoming Holidays", fontWeight = FontWeight.Bold, fontSize = 18.sp,color = Color.Black)
             Spacer(Modifier.height(8.dp))
 
             LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -277,8 +278,8 @@ fun ApplyLeaveScreen(navController: NavController) {
                                 .clip(CircleShape),
                             contentScale = ContentScale.Crop
                         )
-                        Text("Christmas", fontSize = 14.sp)
-                        Text("25 Dec", fontSize = 12.sp, color = Color.Gray)
+                        Text("Christmas", fontSize = 14.sp,color = Color.Black)
+                        Text("25 Dec", fontSize = 12.sp,color = Color.Black)
                     }
                 }
             }
@@ -314,9 +315,7 @@ private fun DateTextField(
 @Composable
 fun LeaveTypeDropdown(
     selectedType: String,
-    onTypeSelected: (String) -> Unit,
-    containerColor: Color,
-    borderColor: Color
+    onTypeSelected: (String) -> Unit
 ) {
     val leaveTypes = listOf("casual", "sick")
     var expanded by remember { mutableStateOf(false) }
@@ -335,12 +334,12 @@ fun LeaveTypeDropdown(
             modifier = Modifier
                 .menuAnchor()
                 .fillMaxWidth()
-                .border(1.dp, borderColor, RoundedCornerShape(12.dp)),
+                .border(1.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(12.dp)),
             shape = RoundedCornerShape(12.dp),
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = containerColor,
-                unfocusedContainerColor = containerColor,
-                disabledContainerColor = containerColor,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
             )
@@ -349,11 +348,15 @@ fun LeaveTypeDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            leaveTypes.forEach { type ->
+            leaveTypes.forEach { leaveType ->
                 DropdownMenuItem(
-                    text = { Text(type.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }) },
+                    text = { Text(leaveType.replaceFirstChar {
+                        if (it.isLowerCase()) it.titlecase(
+                            Locale.getDefault()
+                        ) else it.toString()
+                    }) },
                     onClick = {
-                        onTypeSelected(type)
+                        onTypeSelected(leaveType)
                         expanded = false
                     }
                 )

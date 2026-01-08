@@ -26,9 +26,55 @@ class PresenceCalendarViewModel(context: Context, private val repository: Presen
     private val _currentYearMonth = MutableStateFlow(YearMonth.now())
     val currentYearMonth: StateFlow<YearMonth> = _currentYearMonth.asStateFlow()
 
+    private val _selectedDate = MutableStateFlow<String?>(null)
+    val selectedDate: StateFlow<String?> = _selectedDate.asStateFlow()
+
+    fun selectDate(date: String) {
+        _selectedDate.value = date
+    }
+
     init {
         loadPresenceHistory()
     }
+
+    data class DayDetail(
+        val date: String,
+        val punchIn: String?,
+        val punchOut: String?
+    )
+
+    private val _selectedDayDetail = MutableStateFlow<DayDetail?>(null)
+    val selectedDayDetail = _selectedDayDetail.asStateFlow()
+
+    fun showDayDetail(detail: DayDetail) {
+        _selectedDayDetail.value = detail
+    }
+
+    fun dismissDayDetail() {
+        _selectedDayDetail.value = null
+    }
+
+    fun getDayDetail(
+        date: String,
+        records: List<PresenceRecord>
+    ): DayDetail {
+
+        val dayRecords = records.filter {
+            it.punch_in_at.startsWith(date)
+        }
+
+        val punchIn = dayRecords.minByOrNull { it.punch_in_at }?.punch_in_at
+        val punchOut = dayRecords
+            .mapNotNull { it.punch_out_at }
+            .maxOrNull()
+
+        return DayDetail(
+            date = date,
+            punchIn = punchIn,
+            punchOut = punchOut
+        )
+    }
+
 
     fun loadPresenceHistory() {
         viewModelScope.launch {
@@ -46,6 +92,9 @@ class PresenceCalendarViewModel(context: Context, private val repository: Presen
                 }
 
                 _presenceRecords.value = fixedRecords
+                if (_selectedDate.value == null) {
+                    _selectedDate.value = LocalDate.now().toString()
+                }
 
             } catch (e: Exception) {
                 e.printStackTrace()

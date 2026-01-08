@@ -7,16 +7,22 @@ import com.inrupipresennce.data.model.AttendanceRequest
 import com.inrupipresennce.data.model.AttendanceResponse
 import com.inrupipresennce.data.model.AttendanceTodayResponse
 import com.inrupipresennce.data.model.BirthdayResponse
+import com.inrupipresennce.data.model.CreateTaskResponse
 import com.inrupipresennce.data.model.EarlyBirdResponse
+import com.inrupipresennce.data.model.EventResponse
+import com.inrupipresennce.data.model.Holiday
 import com.inrupipresennce.data.model.LeaveResponse
 import com.inrupipresennce.data.model.LoginResult
 import com.inrupipresennce.data.model.LunchResponse
 import com.inrupipresennce.data.model.OffTodayResponse
 import com.inrupipresennce.data.model.PayslipResponse
 import com.inrupipresennce.data.model.PresenceResponse
+import com.inrupipresennce.data.model.TaskResponse
 import com.inrupipresennce.data.model.TeamMatesResponse
 import com.inrupipresennce.data.model.request.ApplyLeaveRequest
+import com.inrupipresennce.data.model.request.CreateTaskRequest
 import com.inrupipresennce.data.model.request.LoginRequest
+import com.inrupipresennce.data.model.request.UpdateTaskRequest
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.ResponseBody
@@ -46,7 +52,7 @@ interface ApiService {
     @POST("attendance/history")
     suspend fun getPresenceHistory(
         @Body request: AttendanceRequest
-    ): PresenceResponse
+    ):PresenceResponse
 
 
     @GET("attendance/today/{admin_id}")
@@ -91,5 +97,21 @@ interface ApiService {
         @Body request: ApplyLeaveRequest
     ): LeaveResponse
 
+    @GET("holiday-list")
+    suspend fun getHolidays(): Map<String, List<Holiday>>
 
+    @GET("tasks")
+    suspend fun getTasks(@Query("admin_id") adminId: Int): TaskResponse
+
+    @POST("tasks")
+    suspend fun createTask(@Body request: CreateTaskRequest): CreateTaskResponse
+
+    @PUT("tasks/{task_id}")
+    suspend fun updateTask(
+        @Path("task_id") taskId: Int,
+        @Body request: UpdateTaskRequest
+    ): CreateTaskResponse
+
+    @GET("office-events")
+    suspend fun getEvents(): EventResponse
 }
